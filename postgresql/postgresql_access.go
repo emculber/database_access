@@ -320,3 +320,31 @@ func QueryDatabase(db *sql.DB, stmt string) ([][]interface{}, int, error) {
 	}
 	return rowValues, count, nil
 }
+
+func ConvertToStringArray(arr [][]interface{}) string {
+	var stringArray string = "ARRAY["
+
+	for x, OuterArr := range arr {
+		if x != 0 {
+			stringArray += ","
+		}
+		stringArray += "["
+		for i, Value := range OuterArr {
+			if i != 0 {
+				stringArray += ","
+			}
+			stringArray += "'" + Value.(string) + "'"
+			log.WithFields(log.Fields{
+				"Value":        Value,
+				"Index Outer":  x,
+				"Outer Length": len(arr),
+				"Index Inner":  i,
+				"Inner Length": len(OuterArr),
+			}).Info("Adding Value To String Array")
+		}
+		stringArray += "]"
+	}
+
+	stringArray += "]"
+	return stringArray
+}
