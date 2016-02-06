@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/lib/pq"
@@ -22,65 +23,50 @@ type Configuration struct {
 	Db DatabaseInfo
 }
 
-func AutoConnect() (*sql.DB, error) {
-	path := os.Getenv("GOPATH")
-	configFile, err := os.Open(path + "/src/stockDatabase/config.json")
+func AutoConnectUsingConfigFile(config_path string) (*sql.DB, error) {
+	var config_file *os.File
+	var err error
+
+	//Unless the path is specified then use a default one
+	if strings.Compare(config_path, "")==0 {
+		path := os.Getenv("GOPATH")
+		config_file, err = os.Open(path + "/configs/config.json")
+	} else {
+		config_file, err = os.Open(config_path)
+	}
 	if err != nil {
-		log.WithFields(log.Fields{
-			"Config File": configFile,
-			"File":        "postgresql_access.go",
-			"Error":       err.Error(),
-		}).Error("Error Opening File")
 		return nil, err
 	}
 
-	db, err := GetDatabaseConnection(configFile)
+	//Getting the database sql.DB pointer using the config_file
+	db, err := GetDatabaseConnection(config_file)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"File":  "postgresql_access.go",
-			"Error": err.Error(),
-		}).Error("Could Not Connect To Database")
 		return nil, err
 	}
 
-	err = TestDatabaseConnection(db)
+	//Testing the connections to verify we have connected to the database
+	_, err = TestDatabaseConnection(db)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"File":  "postgresql_access.go",
-			"Error": err.Error(),
-		}).Error("Database Test Connection Failed")
 		return nil, err
 	}
 
 	return db, nil
 }
 
-func GetDatabaseConnection(configFile *os.File) (*sql.DB, error) {
-
+func GetDatabaseConnection(config_file *os.File) (*sql.DB, error) {
 	var err error
-	var config Configuration
-	decoder := json.NewDecoder(configFile)
-	err = decoder.Decode(&config)
+	var config_struct Configuration
+
+	//decoding json config_file and setting it to the config_struct
+	decoder := json.NewDecoder(config_file)
+	err = decoder.Decode(&config_struct)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"File":              "postgresql_access.go",
-			"Method":            "GetDatabaseConnection",
-			"Json Encoded File": configFile.Name(),
-			"Error":             err.Error(),
-		}).Error("Could Not decode json file")
 		return nil, err
 	}
-
-	log.WithFields(log.Fields{
-		"Username":      config.Db.Username,
-		"Password":      config.Db.Password,
-		"Host":          config.Db.Host,
-		"Database Name": config.Db.Dbname,
-	}).Debug("Database config variables")
 
 	//Setup database connection
-	dbUrl := fmt.Sprintf("postgres://%s:%s@%s/%s", config.Db.Username, config.Db.Password, config.Db.Host, config.Db.Dbname)
-	db, err := sql.Open("postgres", dbUrl)
+	db_url := fmt.Sprintf("postgres://%s:%s@%s/%s", config_struct.Db.Username, config_struct.Db.Password, config_struct.Db.Host, config_struct.Db.Dbname)
+	db, err := sql.Open("postgres", db_url)
 	if err != nil {
 		return nil, err
 	}
@@ -88,242 +74,166 @@ func GetDatabaseConnection(configFile *os.File) (*sql.DB, error) {
 	return db, nil
 }
 
-func TestDatabaseConnection(db *sql.DB) error {
+func TestDatabaseConnection(db *sql.DB) (*sql.Rows,  error) {
 	//Testing for connectivity
 	var err error
 	resp, err := db.Query("select version()")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	log.WithFields(log.Fields{
-		"SQL Command":      "select version()",
-		"Databse Response": resp,
-	}).Debug("Database Connection Test Was Successful")
-	return nil
+	return resp, nil
 }
 
-func CreateDatabaseTable(db *sql.DB, createTableSQL string) error {
-
+func CreateDatabaseTable(db *sql.DB, create_table_sql string) error {
 	var err error
-	_, err = db.Query(createTableSQL)
+
+	//Query to create table with the sql passed
+	_, err = db.Query(create_table_sql)
 	if err != nil {
 		if err, ok := err.(*pq.Error); ok {
 			//Check if table already exists
 			//Error code 42P07 is for relation already exists
 			if err.Code != "42P07" {
-				log.WithFields(log.Fields{
-					"File":        "postgresql_access.go",
-					"SQL Command": createTableSQL,
-					"ERROR":       err.Error(),
-				}).Error("Error Creating Table")
 				return err
-			} else {
-				log.WithFields(log.Fields{
-					"SQL Command": createTableSQL,
-				}).Warn("Table already created")
-			}
-		} else {
-			log.WithFields(log.Fields{
-				"SQL Command": createTableSQL,
-			}).Debug("Table Was Successfully Created")
 		}
 	}
 	return nil
 }
 
-//Single Value insert
-func InsertSingleDataValue(db *sql.DB, tableName string, tableColumns []string, data []interface{}) error {
-	txn, err := db.Begin()
+func InsertSingleDataValue(db *sql.DB, table_name string, table_columns []string, data []interface{}) error {
+
+	// Transaction Begins and must end with a commit or rollback
+	transaction, err := db.Begin()
 	if err != nil {
-		log.WithFields(log.Fields{
-			"File":  "postgresql_access.go",
-			"Error": err.Error(),
-		}).Error("Error on database Begin")
 		return err
 	}
 
-	stmt, err := txn.Prepare(pq.CopyIn(tableName, tableColumns...))
+	// Preparing statement with the table name and columns passed
+	statement, err := transaction.Prepare(pq.CopyIn(table_name, table_columns...))
 	if err != nil {
-		log.WithFields(log.Fields{
-			"File":  "postgresql_access.go",
-			"Error": err.Error(),
-		}).Error("Error on preparing data")
-		return err
-	}
-	log.WithFields(log.Fields{
-		"Table Name":   tableName,
-		"Table Colums": tableColumns,
-		"Column Size":  len(tableColumns),
-		"Data":         data,
-	}).Debug("Preparing table")
-
-	_, err = stmt.Exec(data...)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"File":  "postgresql_access.go",
-			"Error": err.Error(),
-		}).Error("Error on Preparing Exec data")
-		return err
-	}
-	log.WithFields(log.Fields{
-		"data row": data,
-		//"data row size": len(d),
-	}).Debug("Preparing data")
-
-	_, err = stmt.Exec()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"File":     "postgresql_access.go",
-			"data row": data,
-			"Error":    err.Error(),
-		}).Error("Error on Exec data")
 		return err
 	}
 
-	err = stmt.Close()
+	// Inserting Single Data row into the statement
+	_, err = statement.Exec(data...)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"File":  "postgresql_access.go",
-			"Error": err.Error(),
-		}).Error("Error on Closing")
 		return err
 	}
 
-	err = txn.Commit()
+	/*
+	_, err = statement.Exec()
 	if err != nil {
-		log.WithFields(log.Fields{
-			"File":  "postgresql_access.go",
-			"Error": err.Error(),
-		}).Error("Error on Committing Data")
+		return err
+	}
+	*/
+
+	// Closing the connection of the statement
+	err = statement.Close()
+	if err != nil {
+		return err
+	}
+
+	// Commiting and closing the transaction saving changes we have made in the database
+	err = transaction.Commit()
+	if err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func InsertMultiDataValues(db *sql.DB, tableName string, tableColumns []string, data [][]interface{}) error {
-	txn, err := db.Begin()
+func InsertMultiDataValues(db *sql.DB, table_name string, table_columns []string, data [][]interface{}) error {
+	// Transaction Begins and must end with a commit or rollback
+	transaction, err := db.Begin()
 	if err != nil {
-		log.WithFields(log.Fields{
-			"File":  "postgresql_access.go",
-			"Error": err.Error(),
-		}).Error("Error on database Begin")
 		return err
 	}
 
-	stmt, err := txn.Prepare(pq.CopyIn(tableName, tableColumns...))
+	// Preparing statement with the table name and columns passed
+	statement, err := transaction.Prepare(pq.CopyIn(table_name, table_columns...))
 	if err != nil {
-		log.WithFields(log.Fields{
-			"File":  "postgresql_access.go",
-			"Error": err.Error(),
-		}).Error("Error on preparing data")
 		return err
 	}
-	log.WithFields(log.Fields{
-		"Table Name":   tableName,
-		"Table Colums": tableColumns,
-		"Column Size":  len(tableColumns),
-		"Data":         data,
-	}).Debug("Preparing table")
 
-	for _, DataRow := range data {
-		log.WithFields(log.Fields{
-			"data row": DataRow,
-			//"data row size": len(d),
-		}).Info("Preparing data")
-		_, err = stmt.Exec(DataRow...)
+	// Looping though all the data rows passed
+	for _, data_row := range data {
+		// Inserting Single Data row into the statement
+		_, err = statement.Exec(data_row...)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"File":  "postgresql_access.go",
-				"Error": err.Error(),
-			}).Error("Error on Preparing Exec data")
 			return err
 		}
 	}
 
+	/*
 	_, err = stmt.Exec()
 	if err != nil {
-		log.WithFields(log.Fields{
-			"File":     "postgresql_access.go",
-			"data row": data,
-			"Error":    err.Error(),
-		}).Error("Error on Exec data")
 		return err
 	}
+	*/
 
-	err = stmt.Close()
+	// Closing the connection of the statement
+	err = statement.Close()
 	if err != nil {
-		log.WithFields(log.Fields{
-			"File":  "postgresql_access.go",
-			"Error": err.Error(),
-		}).Error("Error on Closing")
 		return err
 	}
 
-	err = txn.Commit()
+	// Commiting and closing the transaction saving changes we have made in the database
+	err = transaction.Commit()
 	if err != nil {
-		log.WithFields(log.Fields{
-			"File":  "postgresql_access.go",
-			"Error": err.Error(),
-		}).Error("Error on Committing Data")
 		return err
 	}
-
 	return nil
 }
 
-func QueryDatabase(db *sql.DB, stmt string) ([][]interface{}, int, error) {
-	rows, err := db.Query(stmt)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"File":  "postgresql_access.go",
-			"stmt":  stmt,
-			"Error": err.Error(),
-		}).Error("Error on Query Data")
-		return nil, 0, err
-	}
-	cols, err := rows.Columns() // Remember to check err afterwards
-	if err != nil {
-		log.WithFields(log.Fields{
-			"File":  "postgresql_access.go",
-			"Error": err.Error(),
-		}).Error("Error Getting Columns")
-		return nil, 0, err
-	}
+func QueryDatabase(db *sql.DB, sql_statment string) ([][]interface{}, int, error) {
 	var rowValues [][]interface{}
 	var count int = 0
+
+	//Sends the sql statement to the database and retures a set of rows
+	rows, err := db.Query(sql_statment)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	//Gets the Columns for the row set
+	cols, err := rows.Columns()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// While there is a next row
 	for rows.Next() {
+
+		// making an interface array with the size of columns there are
 		vals := make([]interface{}, len(cols))
+
+		// Loops though the columns defines the variable types
 		for i, _ := range cols {
 			vals[i] = new(sql.RawBytes)
 		}
+
+		// Scanes he row and fills it with the row values for each column
 		err = rows.Scan(vals...)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"File":  "postgresql_access.go",
-				"Error": err.Error(),
-			}).Error("Error When Scanning")
 			return nil, 0, err
 		}
+
+		// Loops though again to convert raw bytes to string vlaues	
 		for i, val := range vals {
-			//s := reflect.ValueOf(val)
-			if rb, ok := val.(*sql.RawBytes); ok {
-				vals[i] = (string(*rb))
-				*rb = nil // reset pointer to discard current value to avoid a bug
+			if raw_bytes, ok := val.(*sql.RawBytes); ok {
+				vals[i] = (string(*raw_bytes))
+				*raw_bytes = nil // reset pointer to discard current value to avoid a bug
 			}
 		}
+		// Added string array to list of already converted arrays and adds it to the count
 		rowValues = append(rowValues, vals)
 		count++
-		log.WithFields(log.Fields{
-			"rowValue": vals,
-		}).Debug("Row Finished")
 	}
 	return rowValues, count, nil
 }
 
 func ConvertToStringArray(arr [][]interface{}) string {
 	var stringArray string = "ARRAY["
-
 	for x, OuterArr := range arr {
 		if x != 0 {
 			stringArray += ","
@@ -334,13 +244,6 @@ func ConvertToStringArray(arr [][]interface{}) string {
 				stringArray += ","
 			}
 			stringArray += "'" + Value.(string) + "'"
-			log.WithFields(log.Fields{
-				"Value":        Value,
-				"Index Outer":  x,
-				"Outer Length": len(arr),
-				"Index Inner":  i,
-				"Inner Length": len(OuterArr),
-			}).Info("Adding Value To String Array")
 		}
 		stringArray += "]"
 	}
