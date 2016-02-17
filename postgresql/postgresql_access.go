@@ -23,17 +23,20 @@ type Configuration struct {
 	Db DatabaseInfo
 }
 
-func AutoConnectUsingConfigFile(config_path string) (*sql.DB, error) {
-	var config_file *os.File
+func AutoConnect() (*sql.DB, error) {
+		path := os.Getenv("GOPATH")
+		return ConfigFilePathAutoConnect(path + "/configs/config.json")
+}
+
+func ConfigNameAutoConnect(config_name string) (*sql.DB, error) {
+		path := os.Getenv("GOPATH")
+		return ConfigFilePathAutoConnect(path + "/configs/" + config_name)
+}
+
+func ConfigFilePathAutoConnect(config_path string) (*sql.DB, error) {
 	var err error
 
-	//Unless the path is specified then use a default one
-	if strings.Compare(config_path, "")==0 {
-		path := os.Getenv("GOPATH")
-		config_file, err = os.Open(path + "/configs/config.json")
-	} else {
-		config_file, err = os.Open(config_path)
-	}
+	config_file, err = os.Open(config_path)
 	if err != nil {
 		return nil, err
 	}
