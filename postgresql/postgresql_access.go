@@ -5,9 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
-
-	log "github.com/Sirupsen/logrus"
 	"github.com/lib/pq"
 )
 
@@ -24,19 +21,19 @@ type Configuration struct {
 }
 
 func AutoConnect() (*sql.DB, error) {
-		path := os.Getenv("GOPATH")
-		return ConfigFilePathAutoConnect(path + "/configs/config.json")
+	path := os.Getenv("GOPATH")
+	return ConfigFilePathAutoConnect(path + "/configs/config.json")
 }
 
 func ConfigNameAutoConnect(config_name string) (*sql.DB, error) {
-		path := os.Getenv("GOPATH")
-		return ConfigFilePathAutoConnect(path + "/configs/" + config_name)
+	path := os.Getenv("GOPATH")
+	return ConfigFilePathAutoConnect(path + "/configs/" + config_name)
 }
 
 func ConfigFilePathAutoConnect(config_path string) (*sql.DB, error) {
 	var err error
 
-	config_file, err = os.Open(config_path)
+	config_file, err := os.Open(config_path)
 	if err != nil {
 		return nil, err
 	}
@@ -98,9 +95,10 @@ func CreateDatabaseTable(db *sql.DB, create_table_sql string) error {
 			//Error code 42P07 is for relation already exists
 			if err.Code != "42P07" {
 				return err
+			}
 		}
 	}
-	return nil
+		return nil
 }
 
 func InsertSingleDataValue(db *sql.DB, table_name string, table_columns []string, data []interface{}) error {
