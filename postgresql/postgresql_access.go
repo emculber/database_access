@@ -74,7 +74,16 @@ func GetDatabaseConnection(config_file *os.File) (*sql.DB, error) {
 	return db, nil
 }
 
-func TestDatabaseConnection(db *sql.DB) (*sql.Rows,  error) {
+func ConnectToDatabase(dbname string, host string, port int, username string, password string) *sql.DB {
+	db_url := fmt.Sprintf("postgres://%s:%s@%s/%s", username, password, host, dbname)
+	db, err := sql.Open("postgres", db_url)
+	if err != nil {
+		fmt.Println(err)
+	}
+	//return db
+}
+
+func TestDatabaseConnection(db *sql.DB) (*sql.Rows, error) {
 	//Testing for connectivity
 	var err error
 	resp, err := db.Query("select version()")
