@@ -93,6 +93,16 @@ func TestDatabaseConnection(db *sql.DB) (*sql.Rows, error) {
 	return resp, nil
 }
 
+func CreateDatabase(db *sql.DB, create_database_sql string) error {
+	var err error
+
+	_, err = db.Query(create_database_sql)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func CreateDatabaseTable(db *sql.DB, create_table_sql string) error {
 	var err error
 
