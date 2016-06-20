@@ -37,5 +37,5 @@ func GenerateConfigFile(save_location string) {
 
 	config := Configuration{db}
 	json_config, _ := json.Marshal(config)
-	ioutil.WriteFile(save_location, json_config, 0644)
+	ioutil.WriteFile(save_location+"config.json", json_config, 0644)
 }
