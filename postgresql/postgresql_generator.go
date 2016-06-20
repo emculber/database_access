@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
 )
 
-func GenerateConfigFile() {
+func GenerateConfigFile(save_location string) {
 	db := DatabaseInfo{}
 	reader := bufio.NewReader(os.Stdin)
 
@@ -36,5 +37,5 @@ func GenerateConfigFile() {
 
 	config := Configuration{db}
 	json_config, _ := json.Marshal(config)
-	fmt.Println(string(json_config))
+	ioutil.WriteFile(save_location, json_config, 0644)
 }
