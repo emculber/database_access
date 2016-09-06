@@ -81,7 +81,7 @@ func ConnectToDatabase(dbname string, host string, port int, username string, pa
 	if err != nil {
 		fmt.Println(err)
 	}
-	//return db
+	return db
 }
 
 func TestDatabaseConnection(db *sql.DB) (*sql.Rows, error) {
