@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
 	"github.com/lib/pq"
 )
 
@@ -117,7 +118,7 @@ func CreateDatabaseTable(db *sql.DB, create_table_sql string) error {
 			}
 		}
 	}
-		return nil
+	return nil
 }
 
 func InsertSingleDataValue(db *sql.DB, table_name string, table_columns []string, data []interface{}) error {
@@ -141,10 +142,10 @@ func InsertSingleDataValue(db *sql.DB, table_name string, table_columns []string
 	}
 
 	/*
-	_, err = statement.Exec()
-	if err != nil {
-		return err
-	}
+		_, err = statement.Exec()
+		if err != nil {
+			return err
+		}
 	*/
 
 	// Closing the connection of the statement
@@ -185,10 +186,10 @@ func InsertMultiDataValues(db *sql.DB, table_name string, table_columns []string
 	}
 
 	/*
-	_, err = stmt.Exec()
-	if err != nil {
-		return err
-	}
+		_, err = stmt.Exec()
+		if err != nil {
+			return err
+		}
 	*/
 
 	// Closing the connection of the statement
@@ -200,6 +201,7 @@ func InsertMultiDataValues(db *sql.DB, table_name string, table_columns []string
 	// Commiting and closing the transaction saving changes we have made in the database
 	err = transaction.Commit()
 	if err != nil {
+		transaction.Rollback()
 		return err
 	}
 	return nil
@@ -211,6 +213,8 @@ func QueryDatabase(db *sql.DB, sql_statment string) ([][]interface{}, int, error
 
 	//Sends the sql statement to the database and retures a set of rows
 	rows, err := db.Query(sql_statment)
+
+	defer rows.Close()
 	if err != nil {
 		return nil, 0, err
 	}
@@ -238,7 +242,7 @@ func QueryDatabase(db *sql.DB, sql_statment string) ([][]interface{}, int, error
 			return nil, 0, err
 		}
 
-		// Loops though again to convert raw bytes to string vlaues	
+		// Loops though again to convert raw bytes to string vlaues
 		for i, val := range vals {
 			if raw_bytes, ok := val.(*sql.RawBytes); ok {
 				vals[i] = (string(*raw_bytes))
