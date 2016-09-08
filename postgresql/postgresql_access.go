@@ -91,6 +91,7 @@ func TestDatabaseConnection(db *sql.DB) (*sql.Rows, error) {
 	if err != nil {
 		return nil, err
 	}
+	resp.Close()
 	return resp, nil
 }
 
@@ -126,18 +127,23 @@ func InsertSingleDataValue(db *sql.DB, table_name string, table_columns []string
 	// Transaction Begins and must end with a commit or rollback
 	transaction, err := db.Begin()
 	if err != nil {
+		transaction.Rollback()
 		return err
 	}
 
 	// Preparing statement with the table name and columns passed
 	statement, err := transaction.Prepare(pq.CopyIn(table_name, table_columns...))
 	if err != nil {
+		statement.Close()
+		transaction.Rollback()
 		return err
 	}
 
 	// Inserting Single Data row into the statement
 	_, err = statement.Exec(data...)
 	if err != nil {
+		statement.Close()
+		transaction.Rollback()
 		return err
 	}
 
@@ -151,12 +157,15 @@ func InsertSingleDataValue(db *sql.DB, table_name string, table_columns []string
 	// Closing the connection of the statement
 	err = statement.Close()
 	if err != nil {
+		statement.Close()
+		transaction.Rollback()
 		return err
 	}
 
 	// Commiting and closing the transaction saving changes we have made in the database
 	err = transaction.Commit()
 	if err != nil {
+		transaction.Rollback()
 		return err
 	}
 
@@ -167,12 +176,15 @@ func InsertMultiDataValues(db *sql.DB, table_name string, table_columns []string
 	// Transaction Begins and must end with a commit or rollback
 	transaction, err := db.Begin()
 	if err != nil {
+		transaction.Rollback()
 		return err
 	}
 
 	// Preparing statement with the table name and columns passed
 	statement, err := transaction.Prepare(pq.CopyIn(table_name, table_columns...))
 	if err != nil {
+		statement.Close()
+		transaction.Rollback()
 		return err
 	}
 
@@ -181,6 +193,8 @@ func InsertMultiDataValues(db *sql.DB, table_name string, table_columns []string
 		// Inserting Single Data row into the statement
 		_, err = statement.Exec(data_row...)
 		if err != nil {
+			statement.Close()
+			transaction.Rollback()
 			return err
 		}
 	}
@@ -195,6 +209,8 @@ func InsertMultiDataValues(db *sql.DB, table_name string, table_columns []string
 	// Closing the connection of the statement
 	err = statement.Close()
 	if err != nil {
+		statement.Close()
+		transaction.Rollback()
 		return err
 	}
 
