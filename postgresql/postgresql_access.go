@@ -230,10 +230,10 @@ func QueryDatabase(db *sql.DB, sql_statment string) ([][]interface{}, int, error
 	//Sends the sql statement to the database and retures a set of rows
 	rows, err := db.Query(sql_statment)
 
-	defer rows.Close()
 	if err != nil {
 		return nil, 0, err
 	}
+	defer rows.Close()
 
 	//Gets the Columns for the row set
 	cols, err := rows.Columns()
