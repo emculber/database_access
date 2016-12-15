@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"reflect"
 
 	"github.com/lib/pq"
 )
@@ -264,8 +263,8 @@ func QueryDatabase(db *sql.DB, sql_statment string) ([][]interface{}, int, error
 		// Loops though again to convert raw bytes to string vlaues
 		for i, val := range vals {
 			vals[i] = *(val.(*interface{}))
-			var raw_type = reflect.TypeOf(vals[i])
 
+			//var raw_type = reflect.TypeOf(vals[i])
 			//fmt.Println(raw_type, vals[i])
 
 			/*
