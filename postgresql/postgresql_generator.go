@@ -51,10 +51,12 @@ func ReadDatabase(db *sql.DB, tables []string, columns []string, conditions []st
 	if select_conditions != "" {
 		statement = statement + " WHERE " + select_conditions
 	}
-	fmt.Println(select_tables)
-	fmt.Println(select_columns)
-	fmt.Println(select_conditions)
-	fmt.Println(statement)
+	/*
+		fmt.Println(select_tables)
+		fmt.Println(select_columns)
+		fmt.Println(select_conditions)
+		fmt.Println(statement)
+	*/
 
 	values, _, err := QueryDatabase(db, statement)
 	if err != nil {
