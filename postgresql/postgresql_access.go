@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 
 	"github.com/lib/pq"
 )
@@ -246,10 +247,12 @@ func QueryDatabase(db *sql.DB, sql_statment string) ([][]interface{}, int, error
 
 		// making an interface array with the size of columns there are
 		vals := make([]interface{}, len(cols))
+		val := make([]interface{}, len(cols))
 
 		// Loops though the columns defines the variable types
 		for i, _ := range cols {
-			vals[i] = new(sql.RawBytes)
+			//vals[i] = new(sql.RawBytes)
+			vals[i] = &val[i]
 		}
 
 		// Scanes he row and fills it with the row values for each column
@@ -260,10 +263,17 @@ func QueryDatabase(db *sql.DB, sql_statment string) ([][]interface{}, int, error
 
 		// Loops though again to convert raw bytes to string vlaues
 		for i, val := range vals {
-			if raw_bytes, ok := val.(*sql.RawBytes); ok {
-				vals[i] = (string(*raw_bytes))
-				*raw_bytes = nil // reset pointer to discard current value to avoid a bug
-			}
+			vals[i] = *(val.(*interface{}))
+			var raw_type = reflect.TypeOf(vals[i])
+
+			//fmt.Println(raw_type, vals[i])
+
+			/*
+				if raw_bytes, ok := val.(*sql.RawBytes); ok {
+					vals[i] = (string(*raw_bytes))
+					*raw_bytes = nil // reset pointer to discard current value to avoid a bug
+				}
+			*/
 		}
 		// Added string array to list of already converted arrays and adds it to the count
 		rowValues = append(rowValues, vals)

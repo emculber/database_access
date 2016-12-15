@@ -2,6 +2,7 @@ package postgresql_access
 
 import (
 	"bufio"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -38,4 +39,27 @@ func GenerateConfigFile(save_location string) {
 	config := Configuration{db}
 	json_config, _ := json.Marshal(config)
 	ioutil.WriteFile(save_location+"config.json", json_config, 0644)
+}
+
+func ReadDatabase(db *sql.DB, tables []string, columns []string, conditions []string) [][]interface{} {
+	select_tables := strings.Join(tables, ", ")
+	select_columns := strings.Join(columns, ", ")
+	select_conditions := strings.Join(conditions, " AND ")
+
+	statement := "SELECT " + select_columns + " FROM " + select_tables
+
+	if select_conditions != "" {
+		statement = statement + " WHERE " + select_conditions
+	}
+	fmt.Println(select_tables)
+	fmt.Println(select_columns)
+	fmt.Println(select_conditions)
+	fmt.Println(statement)
+
+	values, _, err := QueryDatabase(db, statement)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	return values
 }
