@@ -1,78 +1,32 @@
-package postgresql_access
+package postgresql
 
 import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"os"
 
+	"github.com/emculber/database_access"
 	"github.com/lib/pq"
 )
 
-type DatabaseInfo struct {
-	Host     string
-	Port     int
-	Username string
-	Password string
-	Dbname   string
-}
-
-type Configuration struct {
-	Db DatabaseInfo
-}
-
-func AutoConnect() (*sql.DB, error) {
-	path := os.Getenv("GOPATH")
-	return ConfigFilePathAutoConnect(path + "/configs/config.json")
-}
-
-func ConfigNameAutoConnect(config_name string) (*sql.DB, error) {
-	path := os.Getenv("GOPATH")
-	return ConfigFilePathAutoConnect(path + "/configs/" + config_name)
-}
-
-func ConfigFilePathAutoConnect(config_path string) (*sql.DB, error) {
+func GetDatabaseConnection(config_file []byte) (*sql.DB, database.Tables, error) {
 	var err error
-
-	config_file, err := os.Open(config_path)
-	if err != nil {
-		return nil, err
-	}
-
-	//Getting the database sql.DB pointer using the config_file
-	db, err := GetDatabaseConnection(config_file)
-	if err != nil {
-		return nil, err
-	}
-
-	//Testing the connections to verify we have connected to the database
-	_, err = TestDatabaseConnection(db)
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
-}
-
-func GetDatabaseConnection(config_file *os.File) (*sql.DB, error) {
-	var err error
-	var config_struct Configuration
+	var config_struct database.Configuration
 
 	//decoding json config_file and setting it to the config_struct
-	decoder := json.NewDecoder(config_file)
-	err = decoder.Decode(&config_struct)
+	err = json.Unmarshal(config_file, &config_struct)
 	if err != nil {
-		return nil, err
+		return nil, database.Tables{}, err
 	}
 
 	//Setup database connection
 	db_url := fmt.Sprintf("postgres://%s:%s@%s/%s", config_struct.Db.Username, config_struct.Db.Password, config_struct.Db.Host, config_struct.Db.Dbname)
 	db, err := sql.Open("postgres", db_url)
 	if err != nil {
-		return nil, err
+		return nil, database.Tables{}, err
 	}
 
-	return db, nil
+	return db, config_struct.Tables, nil
 }
 
 func ConnectToDatabase(dbname string, host string, port int, username string, password string) *sql.DB {

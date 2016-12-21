@@ -1,4 +1,4 @@
-package postgresql_access
+package postgresql
 
 import (
 	"bufio"
@@ -9,10 +9,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/emculber/database_access"
 )
 
 func GenerateConfigFile(save_location string) {
-	db := DatabaseInfo{}
+	db := database.Info{}
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Print("Please Enter Host: ")
@@ -36,7 +38,7 @@ func GenerateConfigFile(save_location string) {
 	db.Dbname, _ = reader.ReadString('\n')
 	db.Dbname = strings.Replace(db.Dbname, "\n", "", -1)
 
-	config := Configuration{db}
+	config := database.Configuration{db, database.Tables{}}
 	json_config, _ := json.Marshal(config)
 	ioutil.WriteFile(save_location+"config.json", json_config, 0644)
 }
