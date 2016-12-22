@@ -62,8 +62,31 @@ func ReadDatabase(db *sql.DB, tables []string, columns []string, conditions []st
 
 	values, _, err := QueryDatabase(db, statement)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error Getting data from database ->", err)
+		fmt.Println("Statement ->", statement)
 		return nil
 	}
 	return values
+}
+
+func CreateDatabaseRow(db *sql.DB, table string, columns []string, values []string) {
+	insert_columns := strings.Join(columns, ", ")
+	insert_values := strings.Join(values, "', '")
+
+	statement := fmt.Sprintf("INSERT INTO %s (%s) VALUES ('%s')", table, insert_columns, insert_values)
+
+	fmt.Println(table)
+	fmt.Println(insert_columns)
+	fmt.Println(insert_values)
+	fmt.Println(statement)
+
+	/*
+		values, _, err := QueryDatabase(db, statement)
+		if err != nil {
+			fmt.Println("Error Getting data from database ->", err)
+			fmt.Println("Statement ->", statement)
+			return nil
+		}
+		return values
+	*/
 }
